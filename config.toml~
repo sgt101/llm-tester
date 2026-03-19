@@ -1,0 +1,34 @@
+[model]
+# Provider must be one of: anthropic, openai, google
+provider = "google"
+# Model name is optional — omit to use each provider's default
+# name = "gemini-3-flash-preview"
+# api_key is optional — omit to read from the environment variable
+# api_key = "sk-..."
+
+[evaluation]
+# Directory produced by generate_composites.py (must contain validation.json)
+composite_dir = "output/png_10_4"
+
+# Optional: name of the target object (must match a key in validation.json).
+# When set, a "target" score is added to every record in score.json.
+# target = "elephant"
+
+# Prompt sent to the model along with each composite image.
+# The model is expected to return a JSON object whose keys are object names
+# and whose values are integer counts, e.g.:  {"circle": 3, "elephant": 2}
+prompt = """
+Look at this image carefully and count every distinct object type you can see.
+
+Return ONLY a valid JSON object — no explanation, no markdown — where each key
+is the object name (lowercase) and each value is the integer count of that
+object in the image.
+
+Example response format:
+{"circle": 3, "elephant": 2, "giraffe": 1}
+"""
+
+[output]
+# Where to write results. Relative paths are resolved inside composite_dir.
+# Omit to use the default: <composite_dir>/score.json
+# score_file = "score.json"

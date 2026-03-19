@@ -1,0 +1,62 @@
+[
+  {
+    "filename": "composite_0001.png",
+    "circle": 23,
+    "elephant": 8,
+    "giraffe": 4
+  },
+  {
+    "filename": "composite_0002.png",
+    "circle": 23,
+    "elephant": 5,
+    "giraffe": 7
+  },
+  {
+    "filename": "composite_0003.png",
+    "circle": 23,
+    "elephant": 8,
+    "giraffe": 4
+  },
+  {
+    "filename": "composite_0004.png",
+    "circle": 23,
+    "elephant": 8,
+    "giraffe": 4
+  },
+  {
+    "filename": "composite_0005.png",
+    "circle": 23,
+    "elephant": 6,
+    "giraffe": 6
+  },
+  {
+    "filename": "composite_0006.png",
+    "circle": 23,
+    "elephant": 7,
+    "giraffe": 5
+  },
+  {
+    "filename": "composite_0007.png",
+    "circle": 23,
+    "elephant": 6,
+    "giraffe": 6
+  },
+  {
+    "filename": "composite_0008.png",
+    "circle": 23,
+    "elephant": 4,
+    "giraffe": 8
+  },
+  {
+    "filename": "composite_0009.png",
+    "circle": 23,
+    "elephant": 7,
+    "giraffe": 5
+  },
+  {
+    "filename": "composite_0010.png",
+    "circle": 23,
+    "elephant": 5,
+    "giraffe": 7
+  }
+]

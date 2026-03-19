@@ -1,0 +1,180 @@
+[
+  {
+    "filename": "composite_0001.png",
+    "predicted": {
+      "circle": 23,
+      "elephant": 8,
+      "giraffe": 4
+    },
+    "actual": {
+      "circle": 23,
+      "elephant": 8,
+      "giraffe": 4
+    },
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  },
+  {
+    "filename": "composite_0002.png",
+    "predicted": {
+      "circle": 23,
+      "elephant": 5,
+      "giraffe": 7
+    },
+    "actual": {
+      "circle": 23,
+      "elephant": 5,
+      "giraffe": 7
+    },
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  },
+  {
+    "filename": "composite_0003.png",
+    "predicted": {
+      "circle": 23,
+      "elephant": 8,
+      "giraffe": 4
+    },
+    "actual": {
+      "circle": 23,
+      "elephant": 8,
+      "giraffe": 4
+    },
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  },
+  {
+    "filename": "composite_0004.png",
+    "predicted": {
+      "circle": 23,
+      "elephant": 8,
+      "giraffe": 4
+    },
+    "actual": {
+      "circle": 23,
+      "elephant": 8,
+      "giraffe": 4
+    },
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  },
+  {
+    "filename": "composite_0005.png",
+    "predicted": {
+      "circle": 23,
+      "elephant": 6,
+      "giraffe": 6
+    },
+    "actual": {
+      "circle": 23,
+      "elephant": 6,
+      "giraffe": 6
+    },
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  },
+  {
+    "filename": "composite_0006.png",
+    "predicted": {
+      "circle": 23,
+      "elephant": 7,
+      "giraffe": 5
+    },
+    "actual": {
+      "circle": 23,
+      "elephant": 7,
+      "giraffe": 5
+    },
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  },
+  {
+    "filename": "composite_0007.png",
+    "predicted": {
+      "circle": 23,
+      "elephant": 6,
+      "giraffe": 6
+    },
+    "actual": {
+      "circle": 23,
+      "elephant": 6,
+      "giraffe": 6
+    },
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  },
+  {
+    "filename": "composite_0008.png",
+    "predicted": {
+      "circle": 23,
+      "elephant": 4,
+      "giraffe": 8
+    },
+    "actual": {
+      "circle": 23,
+      "elephant": 4,
+      "giraffe": 8
+    },
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  },
+  {
+    "filename": "composite_0009.png",
+    "predicted": {
+      "circle": 23,
+      "elephant": 7,
+      "giraffe": 5
+    },
+    "actual": {
+      "circle": 23,
+      "elephant": 7,
+      "giraffe": 5
+    },
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  },
+  {
+    "filename": "composite_0010.png",
+    "predicted": {
+      "circle": 23,
+      "elephant": 5,
+      "giraffe": 7
+    },
+    "actual": {
+      "circle": 23,
+      "elephant": 5,
+      "giraffe": 7
+    },
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  },
+  {
+    "filename": "__summary__",
+    "total_images": 10,
+    "circle": 1.0,
+    "elephant": 1.0,
+    "giraffe": 1.0,
+    "overall": 1.0
+  }
+]
