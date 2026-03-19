@@ -144,10 +144,31 @@ def evaluate(config_path: str | Path) -> None:
     # Determine all object names from the first validation record (excluding 'filename')
     object_names: list[str] = [k for k in ground_truth[0].keys() if k != "filename"]
 
+    # Build the full prompt by appending an auto-generated items section to the
+    # base prompt from config.toml.  This ensures the model is told the exact
+    # object names that appear in the images rather than relying on hardcoded
+    # examples in the config file.
+    example_json = json.dumps({name: "N" for name in object_names})
+    items_suffix = (
+        f"\n\nThe objects to count are: {', '.join(object_names)}.\n"
+        f"Return JSON in exactly this format (replace N with the integer count):\n"
+        f"{example_json}"
+    )
+    full_prompt = eval_cfg["prompt"].rstrip() + items_suffix
+
+    # Save the full prompt to a file in the composite directory for auditing.
+    prompt_path = composite_dir / "prompt.txt"
+    prompt_path.write_text(full_prompt, encoding="utf-8")
+    print(f"Prompt   : {prompt_path}")
+
     results: list[dict] = []
     # Accumulate totals for summary
     totals: dict[str, float] = {name: 0.0 for name in object_names}
     evaluated = 0
+
+    model_slug = re.sub(r"[^a-zA-Z0-9]+", "-", client.model).strip("-")
+    log_path = composite_dir / f"log-{model_slug}.jsonl"
+    log_file = log_path.open("w", encoding="utf-8")
 
     for entry in ground_truth:
         fname = entry["filename"]
@@ -160,13 +181,28 @@ def evaluate(config_path: str | Path) -> None:
         actual_counts = {name: int(entry[name]) for name in object_names}
 
         print(f"  [{evaluated + 1}/{len(ground_truth)}] {fname} ...", end=" ", flush=True)
+        raw_text = ""
+        parse_error = None
+        parsed_json = None
         try:
-            response = client.analyze_image(image_path, prompt)
-            raw_json = extract_json(response.text)
-            predicted_counts = normalise_counts(raw_json)
+            response = client.analyze_image(image_path, full_prompt)
+            raw_text = response.text
+            parsed_json = extract_json(raw_text)
+            predicted_counts = normalise_counts(parsed_json)
         except Exception as exc:
+            parse_error = str(exc)
             print(f"ERROR: {exc}")
             predicted_counts = {}
+
+        log_file.write(json.dumps({
+            "filename": fname,
+            "raw_response": raw_text,
+            "parsed": parsed_json,
+            "predicted": predicted_counts,
+            "actual": actual_counts,
+            "error": parse_error,
+        }) + "\n")
+        log_file.flush()
 
         per_object = score_image(predicted_counts, actual_counts)
         object_scores = list(per_object.values())
@@ -210,8 +246,10 @@ def evaluate(config_path: str | Path) -> None:
             print(f"  {'target':20s} {summary.get('target', 'n/a')}")
         print(f"  {'overall':20s} {summary['overall']:.4f}")
 
+    log_file.close()
+    print(f"Log file : {log_path}")
+
     # Write score.json
-    model_slug = re.sub(r"[^a-zA-Z0-9]+", "-", client.model).strip("-")
     score_path_default = composite_dir / f"score-{model_slug}.json"
     score_path = Path(output_cfg.get("score_file", score_path_default))
     if not score_path.is_absolute():

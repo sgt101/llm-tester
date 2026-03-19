@@ -8,24 +8,21 @@ name =  "gemini-3-flash-preview"
 
 [evaluation]
 # Directory produced by generate_composites.py (must contain validation.json)
-composite_dir = "output/png_10_35"
+composite_dir = "output/png_10_45"
 
 # Optional: name of the target object (must match a key in validation.json).
 # When set, a "target" score is added to every record in score.json.
 # target = "elephant"
 
-# Prompt sent to the model along with each composite image.
-# The model is expected to return a JSON object whose keys are object names
-# and whose values are integer counts, e.g.:  {"circle": 3, "elephant": 2}
+# Base prompt sent to the model along with each composite image.
+# The object names and an example JSON format are appended automatically
+# from validation.json — do not hardcode item names here.
 prompt = """
 Look at this image carefully and count every distinct object type you can see.
 
 Return ONLY a valid JSON object — no explanation, no markdown — where each key
 is the object name (lowercase) and each value is the integer count of that
 object in the image.
-
-Example response format:
-{"circle": 3, "elephant": 2, "giraffe": 1}
 """
 
 [output]
