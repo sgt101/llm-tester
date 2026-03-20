@@ -1,14 +1,19 @@
 [model]
 # Provider must be one of: anthropic, openai, google
+
 provider = "google"
+
 # Model name is optional — omit to use each provider's default
-name =  "gemini-3-flash-preview"
+
+name =  "gemini-3-pro-image-preview"
+
 # api_key is optional — omit to read from the environment variable
 # api_key = "sk-..."
 
 [evaluation]
 # Directory produced by generate_composites.py (must contain validation.json)
-composite_dir = "output/png_10_45"
+
+composite_dir = "output/png_10_45_spiral_target5"
 
 # Optional: name of the target object (must match a key in validation.json).
 # When set, a "target" score is added to every record in score.json.

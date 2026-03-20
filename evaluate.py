@@ -222,7 +222,7 @@ def evaluate(config_path: str | Path) -> None:
         evaluated += 1
 
         correct_str = ", ".join(
-            f"{n}={int(s)}" for n, s in per_object.items()
+            f"{n}={s:.2f}" for n, s in per_object.items()
         )
         print(f"overall={overall:.2f}  ({correct_str})")
 

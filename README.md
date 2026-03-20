@@ -41,6 +41,50 @@ Set the relevant environment variable for the provider you intend to use:
 | OpenAI | `OPENAI_API_KEY` |
 | Google | `GEMINI_API_KEY` |
 
+**Option 1 — export in your shell session:**
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-..."
+export GEMINI_API_KEY="AIza..."
+```
+
+You only need to set the variable for the provider you're using. Add the line to your `~/.zshrc` or `~/.bashrc` to make it permanent.
+
+**Option 2 — `.env` file (recommended for local development):**
+
+Create a `.env` file in the project root:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=AIza...
+```
+
+Then load it before running:
+
+```bash
+set -a && source .env && set +a
+uv run evaluate.py config.toml
+```
+
+Or use `uv run --env-file .env evaluate.py config.toml` if your `uv` version supports `--env-file`.
+
+> **Note:** Never commit your `.env` file. Add it to `.gitignore`:
+> ```bash
+> echo ".env" >> .gitignore
+> ```
+
+**Option 3 — inline in `config.toml` (not recommended):**
+
+You can also set `api_key` directly in the `[model]` section of `config.toml`, but avoid committing that file with a real key in it.
+
+```toml
+[model]
+provider = "anthropic"
+api_key  = "sk-ant-..."   # omit this line and use an env var instead
+```
+
 ---
 
 ## Stage 1 — Generate composite images

@@ -109,16 +109,16 @@ def _prepare_instances(
     distribution: list[int],
     obj_w: int,
     obj_h: int,
-) -> list[Image.Image]:
-    """Build and shuffle the list of thumbnailed instances."""
-    instances: list[Image.Image] = []
-    for (_, img), count in zip(images, distribution):
+) -> list[tuple[Image.Image, int]]:
+    """Build and shuffle the list of (thumbnail, type_index) pairs."""
+    instances: list[tuple[Image.Image, int]] = []
+    for type_idx, ((_, img), count) in enumerate(zip(images, distribution)):
         for _ in range(count):
             thumb = img.copy()
             if thumb.mode not in ("RGB", "RGBA", "L"):
                 thumb = thumb.convert("RGBA")
             thumb.thumbnail((obj_w, obj_h), Image.LANCZOS)
-            instances.append(thumb)
+            instances.append((thumb, type_idx))
     random.shuffle(instances)
     return instances
 
@@ -134,23 +134,47 @@ def _clamp(x: int, y: int, tw: int, th: int, cw: int, ch: int) -> tuple[int, int
     return max(0, min(x, cw - tw)), max(0, min(y, ch - th))
 
 
+def _overlaps(
+    x: int, y: int, tw: int, th: int,
+    placed: list[tuple[int, int, int, int]],
+    margin: int = 6,
+) -> bool:
+    """Return True if the rectangle (x, y, tw, th) overlaps any placed rectangle."""
+    for px, py, pw, ph in placed:
+        if (x < px + pw + margin and x + tw + margin > px and
+                y < py + ph + margin and y + th + margin > py):
+            return True
+    return False
+
+
+_SHRINK_STEP = 0.15   # scale reduction per retry pass
+_MIN_SCALE   = 0.25   # never shrink below 25 % of original size
+
+
+def _shrink(thumb: Image.Image, scale: float) -> Image.Image:
+    w = max(1, int(thumb.width  * scale))
+    h = max(1, int(thumb.height * scale))
+    return thumb.resize((w, h), Image.LANCZOS)
+
+
 # ---------------------------------------------------------------------------
 # Layout: grid
 # ---------------------------------------------------------------------------
 
 def _layout_grid(
-    instances: list[Image.Image],
+    instances: list[tuple[Image.Image, int]],
     canvas: Image.Image,
-) -> None:
-    """Regular grid with slight random jitter."""
+) -> list[int]:
+    """Regular grid with slight random jitter. Always places every instance."""
     total = len(instances)
     cw, ch = canvas.size
     cols = math.ceil(math.sqrt(total))
     rows = math.ceil(total / cols)
     cell_w = cw // cols
     cell_h = ch // rows
+    placed_types: list[int] = []
 
-    for idx, thumb in enumerate(instances):
+    for idx, (thumb, type_idx) in enumerate(instances):
         row = idx // cols
         col = idx % cols
         jitter_x = random.randint(-cell_w // 10, cell_w // 10)
@@ -159,85 +183,119 @@ def _layout_grid(
         y = row * cell_h + (cell_h - thumb.height) // 2 + jitter_y
         x, y = _clamp(x, y, thumb.width, thumb.height, cw, ch)
         _paste(canvas, thumb, x, y)
+        placed_types.append(type_idx)
+
+    return placed_types
 
 
 # ---------------------------------------------------------------------------
-# Layout: random (scatter, attempts to avoid overlap)
+# Layout: random (scatter, guaranteed non-overlapping)
 # ---------------------------------------------------------------------------
 
 def _layout_random(
-    instances: list[Image.Image],
+    instances: list[tuple[Image.Image, int]],
     canvas: Image.Image,
-) -> None:
-    """Place each object at a random position, retrying to reduce overlap."""
+) -> list[int]:
+    """Place each object at a random non-overlapping position.
+
+    For each object, up to 500 random positions are tried.  If none are
+    clear, the object is shrunk by _SHRINK_STEP and the search retries
+    until _MIN_SCALE is reached.  Returns type indices of placed objects.
+    """
     cw, ch = canvas.size
-    placed: list[tuple[int, int, int, int]] = []  # (x, y, w, h)
-    max_attempts = 60
+    placed: list[tuple[int, int, int, int]] = []
+    placed_types: list[int] = []
 
-    for thumb in instances:
-        tw, th = thumb.width, thumb.height
-        best = None
-        best_overlap = float("inf")
+    for thumb, type_idx in instances:
+        placed_this = False
+        scale = 1.0
 
-        for _ in range(max_attempts):
-            x = random.randint(0, max(0, cw - tw))
-            y = random.randint(0, max(0, ch - th))
-            # Calculate total overlap with already-placed objects
-            overlap = 0
-            for px, py, pw, ph in placed:
-                ox = max(0, min(x + tw, px + pw) - max(x, px))
-                oy = max(0, min(y + th, py + ph) - max(y, py))
-                overlap += ox * oy
-            if overlap == 0:
-                best = (x, y)
-                break
-            if overlap < best_overlap:
-                best_overlap = overlap
-                best = (x, y)
+        while not placed_this and scale >= _MIN_SCALE:
+            current = thumb if scale == 1.0 else _shrink(thumb, scale)
+            tw, th = current.width, current.height
 
-        x, y = best  # type: ignore[misc]
-        placed.append((x, y, tw, th))
-        _paste(canvas, thumb, x, y)
+            for _ in range(500):
+                x = random.randint(0, max(0, cw - tw))
+                y = random.randint(0, max(0, ch - th))
+                if not _overlaps(x, y, tw, th, placed):
+                    placed.append((x, y, tw, th))
+                    _paste(canvas, current, x, y)
+                    placed_this = True
+                    placed_types.append(type_idx)
+                    break
+
+            if not placed_this:
+                scale -= _SHRINK_STEP
+
+        if not placed_this:
+            print("\n  Warning: could not place one object even at minimum size — skipped.")
+
+    return placed_types
 
 
 # ---------------------------------------------------------------------------
-# Layout: spiral
+# Layout: spiral (arc-walking, guaranteed non-overlapping)
 # ---------------------------------------------------------------------------
 
 def _layout_spiral(
-    instances: list[Image.Image],
+    instances: list[tuple[Image.Image, int]],
     canvas: Image.Image,
-) -> None:
-    """Place objects along an Archimedean spiral from the canvas centre."""
-    total = len(instances)
+) -> list[int]:
+    """Place objects along an Archimedean spiral, advancing the arc until
+    each new object sits clear of all previously placed ones.
+
+    If the spiral is exhausted at the current size the object is shrunk by
+    _SHRINK_STEP and the spiral restarts from angle 0 until _MIN_SCALE is
+    reached.  Returns type indices of placed objects.
+    """
     cw, ch = canvas.size
     cx, cy = cw / 2, ch / 2
+    max_radius = min(cx, cy) * 0.90
+    delta_angle = 0.08  # radians (~4.6°)
 
-    # Scale the spiral so the outermost ring stays inside the canvas
-    max_radius = min(cx, cy) * 0.88
-    # Spacing between successive spiral arms based on the largest thumbnail
-    max_thumb = max((max(t.width, t.height) for t in instances), default=80)
-    arm_spacing = max_thumb * 1.1
+    placed: list[tuple[int, int, int, int]] = []
+    placed_types: list[int] = []
+    angle = 0.0
 
-    for idx, thumb in enumerate(instances):
-        tw, th = thumb.width, thumb.height
-        if total == 1:
-            angle = 0.0
-            radius = 0.0
-        else:
-            # Distribute evenly by arc-length: angle grows so that
-            # r = arm_spacing * angle / (2π), arc ≈ arm_spacing per step
-            angle = math.sqrt(2 * arm_spacing * idx * (2 * math.pi) / arm_spacing)
-            radius = arm_spacing * angle / (2 * math.pi)
-            # If the spiral would exceed max_radius, wrap back to centre
-            if radius > max_radius:
-                angle = math.sqrt(2 * arm_spacing * (idx % max(1, total // 2)) * (2 * math.pi) / arm_spacing)
-                radius = arm_spacing * angle / (2 * math.pi)
+    for thumb, type_idx in instances:
+        placed_this = False
+        scale = 1.0
 
-        x = int(cx + radius * math.cos(angle) - tw / 2)
-        y = int(cy + radius * math.sin(angle) - th / 2)
-        x, y = _clamp(x, y, tw, th, cw, ch)
-        _paste(canvas, thumb, x, y)
+        while not placed_this and scale >= _MIN_SCALE:
+            current = thumb if scale == 1.0 else _shrink(thumb, scale)
+            tw, th = current.width, current.height
+
+            # Arm spacing scales with the current object size so shrunken
+            # objects still pack tightly rather than leaving huge gaps.
+            arm_spacing = max(tw, th) * 1.2
+
+            search_angle = angle
+
+            while True:
+                radius = arm_spacing * search_angle / (2 * math.pi)
+                if radius > max_radius:
+                    scale -= _SHRINK_STEP
+                    break
+
+                x = int(cx + radius * math.cos(search_angle) - tw / 2)
+                y = int(cy + radius * math.sin(search_angle) - th / 2)
+                x, y = _clamp(x, y, tw, th, cw, ch)
+
+                if not _overlaps(x, y, tw, th, placed):
+                    placed.append((x, y, tw, th))
+                    _paste(canvas, current, x, y)
+                    placed_this = True
+                    placed_types.append(type_idx)
+                    r = max(arm_spacing * 0.5, radius)
+                    angle = search_angle + max(delta_angle, max(tw, th) / r)
+                    break
+
+                search_angle += delta_angle
+
+        if not placed_this:
+            print("\n  Warning: could not place one object even at minimum size — skipped.")
+
+    return placed_types
 
 
 # ---------------------------------------------------------------------------
@@ -253,12 +311,17 @@ def create_composite(
     canvas_size: tuple[int, int] = (1200, 900),
     bg_color: tuple[int, int, int] = (255, 255, 255),
     layout: str = "grid",
-) -> Image.Image:
-    """Arrange object instances on a canvas using the chosen layout."""
+) -> tuple[Image.Image, list[int]]:
+    """Arrange object instances on a canvas using the chosen layout.
+
+    Returns (canvas, actual_distribution) where actual_distribution reflects
+    only the objects that were successfully placed — which may be fewer than
+    the requested distribution if placement failed for some objects.
+    """
     total = sum(distribution)
     canvas = Image.new("RGB", canvas_size, bg_color)
     if total == 0:
-        return canvas
+        return canvas, [0] * len(distribution)
 
     # Compute a uniform object size that fits comfortably for the grid layout.
     # For random/spiral we use a fixed size so objects don't shrink unnecessarily.
@@ -273,9 +336,6 @@ def create_composite(
     if layout == "grid":
         obj_w, obj_h = grid_obj_w, grid_obj_h
     else:
-        # For random/spiral: target ~15% of canvas in the smaller dimension,
-        # but never larger than the grid cell size (which still shrinks for
-        # very high counts so objects remain distinguishable).
         free_obj = max(canvas_size[0], canvas_size[1]) // 6
         obj_w = min(free_obj, grid_obj_w * 3)
         obj_h = min(free_obj, grid_obj_h * 3)
@@ -287,9 +347,14 @@ def create_composite(
     layout_fn = LAYOUTS.get(layout)
     if layout_fn is None:
         raise ValueError(f"Unknown layout '{layout}'. Choose from: {', '.join(LAYOUTS)}")
-    layout_fn(instances, canvas)
+    placed_type_indices = layout_fn(instances, canvas)
 
-    return canvas
+    # Reconstruct actual distribution from what was placed.
+    actual_dist = [0] * len(distribution)
+    for type_idx in placed_type_indices:
+        actual_dist[type_idx] += 1
+
+    return canvas, actual_dist
 
 
 def save_composite(img: Image.Image, path: Path, fmt: str) -> None:
@@ -383,7 +448,8 @@ def main() -> None:
     file_ext = "jpg" if fmt == "jpeg" else fmt
 
     # Output directory: output/{format}_{numbout}_{noobjects}/
-    out_dir = Path("output") / f"{file_ext}_{args.numbout}_{args.noobjects}"
+    target_suffix = f"_target{args.numtarget}" if args.numtarget is not None else ""
+    out_dir = Path("output") / f"{file_ext}_{args.numbout}_{args.noobjects}_{args.layout}{target_suffix}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Validate --target / --numtarget pairing
@@ -427,13 +493,13 @@ def main() -> None:
         )
         print(f"  [{i:>{len(str(args.numbout))}}/{args.numbout}] {desc}")
 
-        composite = create_composite(images, dist, canvas_size=(canvas_w, canvas_h), layout=args.layout)
+        composite, actual_dist = create_composite(images, dist, canvas_size=(canvas_w, canvas_h), layout=args.layout)
 
         fname = f"composite_{i:04d}.{file_ext}"
         save_composite(composite, out_dir / fname, fmt)
 
         record: dict = {"filename": fname}
-        record.update({name: cnt for name, cnt in zip(all_names, dist)})
+        record.update({name: cnt for name, cnt in zip(all_names, actual_dist)})
         validation.append(record)
 
     validation_path = out_dir / "validation.json"
