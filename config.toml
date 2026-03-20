@@ -1,11 +1,11 @@
 [model]
 # Provider must be one of: anthropic, openai, google
 
-provider = "google"
+provider = "openai"
 
 # Model name is optional — omit to use each provider's default
 
-name =  "gemini-3-pro-image-preview"
+name =  "gpt-image-1.5-2025-12-16"
 
 # api_key is optional — omit to read from the environment variable
 # api_key = "sk-..."

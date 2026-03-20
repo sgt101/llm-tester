@@ -177,7 +177,7 @@ class OpenAIClient(LLMClient):
                     ],
                 }
             ],
-            max_tokens=1024,
+            max_completion_tokens=1024,
         )
         choice = completion.choices[0]
         text = choice.message.content or ""
