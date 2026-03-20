@@ -1,8 +1,8 @@
 # llm-tester
 
-A two-stage pipeline for testing how well LLMs can count objects in images.
-
-1. **`generate_composites.py`** — creates composite images containing randomly distributed instances of your source objects, plus a `validation.json` ground-truth file.
+A two-stage pipeline for testing how well LLMs can count objects in images. This code was generated using Claude Code, and it's provided under an MIT license (see LICENSE) 
+![The intended flow of using this code](llm_tester_flow.png "What this testing program does")
+1. **`generate_composites.py`** — creates composite images containing pseudo-randomly distributed instances of your source objects, plus a `validation.json` ground-truth file.
 2. **`evaluate.py`** — submits those images to an LLM and scores the responses against the ground truth.
 
 ## Requirements
@@ -30,6 +30,7 @@ llm-tester/
 │   └── circle.png
 └── output/               # created automatically
 ```
+
 
 ### API keys
 
