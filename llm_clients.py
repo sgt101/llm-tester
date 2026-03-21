@@ -235,6 +235,64 @@ class GoogleClient(LLMClient):
 
 
 # ---------------------------------------------------------------------------
+# MLX-VLM (local, Apple Silicon)
+# ---------------------------------------------------------------------------
+
+class MLXClient(LLMClient):
+    """Run a vision-language model locally via mlx-vlm (Apple Silicon only).
+
+    The model is a Hugging Face repo ID of an MLX-compatible VLM, e.g.:
+        mlx-community/Qwen2-VL-2B-Instruct-4bit
+        mlx-community/llava-1.5-7b-4bit
+
+    No API key is required.  Set provider = "mlx" in config.toml and supply
+    the repo ID (or local path) as the model name.
+    """
+
+    provider_name = "mlx"
+    default_model = "mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-4bit"
+    api_key_env = ""  # unused
+
+    def __init__(self, model: str | None = None, api_key: str | None = None) -> None:
+        # Skip the base-class API-key requirement — no key needed for local inference.
+        self.model = model or self.default_model
+        self.api_key = ""
+
+        try:
+            from mlx_vlm import load, generate
+            from mlx_vlm.prompt_utils import apply_chat_template
+            from mlx_vlm.utils import load_config
+        except ImportError:
+            raise ImportError("mlx-vlm package is required: uv add mlx-vlm")
+
+        self._generate = generate
+        self._apply_chat_template = apply_chat_template
+
+        print(f"Loading MLX model '{self.model}' …", flush=True)
+        self._model, self._processor = load(self.model)
+        self._config = load_config(self.model)
+
+    def analyze_image(self, image_path: str | Path, prompt: str) -> LLMResponse:
+        image_path = str(Path(image_path).resolve())
+        formatted_prompt = self._apply_chat_template(
+            self._processor, self._config, prompt, num_images=1
+        )
+        output = self._generate(
+            self._model,
+            self._processor,
+            formatted_prompt,
+            [image_path],
+            verbose=False,
+        )
+        text = output if isinstance(output, str) else str(output)
+        return LLMResponse(
+            provider=self.provider_name,
+            model=self.model,
+            text=text,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
 
@@ -242,6 +300,7 @@ _PROVIDERS: dict[str, type[LLMClient]] = {
     "anthropic": AnthropicClient,
     "openai": OpenAIClient,
     "google": GoogleClient,
+    "mlx": MLXClient,
 }
 
 
@@ -253,9 +312,10 @@ def get_client(
     """Return an LLMClient for the named provider.
 
     Args:
-        provider: One of "anthropic", "openai", or "google".
+        provider: One of "anthropic", "openai", "google", or "mlx".
         model:    Model name override. Uses each provider's default when omitted.
         api_key:  API key override. Reads from the environment when omitted.
+                  Not used for the "mlx" provider.
 
     Example:
         client = get_client("anthropic")

@@ -16,6 +16,12 @@ A two-stage pipeline for testing how well LLMs can count objects in images. This
 uv sync
 ```
 
+To use local MLX models on Apple Silicon, install the optional MLX dependencies:
+
+```bash
+uv sync --extra mlx
+```
+
 Place your source images (PNG, JPEG, or GIF) in a folder called `sourceimg/`:
 
 ```
@@ -41,6 +47,7 @@ Set the relevant environment variable for the provider you intend to use:
 | Anthropic | `ANTHROPIC_API_KEY` |
 | OpenAI | `OPENAI_API_KEY` |
 | Google | `GEMINI_API_KEY` |
+| MLX (local) | — no key required — |
 
 **Option 1 — export in your shell session:**
 
@@ -209,6 +216,27 @@ Example response format:
 | Anthropic | `claude-opus-4-6` |
 | OpenAI | `gpt-4o` |
 | Google | `gemini-2.0-flash` |
+| MLX | `mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-4bit` |
+
+### Local inference with MLX (Apple Silicon)
+
+The `mlx` provider runs a vision-language model entirely on-device — no API key or internet connection required during inference. Models are downloaded from Hugging Face on first use and cached locally.
+
+Install the MLX dependencies first:
+
+```bash
+uv sync --extra mlx
+```
+
+Then set `provider = "mlx"` in `config.toml` and supply any MLX-compatible VLM repo ID as the model name:
+
+```toml
+[model]
+provider = "mlx"
+name = "mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-4bit"
+```
+
+Browse available models at [huggingface.co/mlx-community](https://huggingface.co/mlx-community). The MLX provider is only supported on Apple Silicon Macs.
 
 ### Run
 
