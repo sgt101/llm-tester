@@ -504,6 +504,13 @@ def main() -> None:
 
     validation_path = out_dir / "validation.json"
     validation_path.write_text(json.dumps(validation, indent=2))
+
+    config_src = Path("config.toml")
+    if config_src.exists():
+        import shutil
+        shutil.copy2(config_src, out_dir / "config.toml")
+        print(f"\nconfig.toml copied to {out_dir}")
+
     print(f"\nDone. {args.numbout} image(s) saved to: {out_dir}")
     print(f"Validation file: {validation_path}")
 

@@ -30,6 +30,17 @@ is the object name (lowercase) and each value is the integer count of that
 object in the image.
 """
 
+# Settings for evaluate_table.py
+# Directory produced by generate_tables.py (must contain validation.json with grid data)
+table_dir = "output/tables_4x6_10_1digit"
+
+# Base prompt for evaluate_table.py.
+# The grid dimensions and required JSON format are appended automatically.
+prompt_table = """
+Look at this table image carefully and read the number shown in every cell.
+Return ONLY valid JSON — no explanation, no markdown.
+"""
+
 [output]
 # Where to write results. Relative paths are resolved inside composite_dir.
 # Omit to use the default: <composite_dir>/score.json
