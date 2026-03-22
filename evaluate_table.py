@@ -72,21 +72,22 @@ def extract_json(text: str) -> dict:
     return obj
 
 
-def _to_int(v: object) -> int | None:
+def _to_number(v: object) -> float | None:
+    """Parse v as float, covering both integer ('3') and decimal ('3.7') strings."""
     try:
-        return int(v)
+        return float(v)
     except (TypeError, ValueError):
         return None
 
 
-def normalise_grid(raw: object, rows: int, cols: int) -> list[list[int | None]]:
-    """Coerce the model's grid to a 2-D list of ints (None where unreadable)."""
-    grid: list[list[int | None]] = []
+def normalise_grid(raw: object, rows: int, cols: int) -> list[list[float | None]]:
+    """Coerce the model's grid to a 2-D list of numbers (None where unreadable)."""
+    grid: list[list[float | None]] = []
     for r in range(rows):
-        row_vals: list[int | None] = []
+        row_vals: list[float | None] = []
         for c in range(cols):
             try:
-                val = _to_int(raw[r][c])
+                val = _to_number(raw[r][c])
             except (IndexError, TypeError):
                 val = None
             row_vals.append(val)
@@ -94,11 +95,11 @@ def normalise_grid(raw: object, rows: int, cols: int) -> list[list[int | None]]:
     return grid
 
 
-def normalise_sums(raw: object, length: int) -> list[int | None]:
-    result: list[int | None] = []
+def normalise_sums(raw: object, length: int) -> list[float | None]:
+    result: list[float | None] = []
     for i in range(length):
         try:
-            result.append(_to_int(raw[i]))
+            result.append(_to_number(raw[i]))
         except (IndexError, TypeError):
             result.append(None)
     return result
@@ -108,14 +109,14 @@ def normalise_sums(raw: object, length: int) -> list[int | None]:
 # Ground-truth computation
 # ---------------------------------------------------------------------------
 
-def ground_truth_from_grid(str_grid: list[list[str]]) -> tuple[list[list[int]], list[int], list[int]]:
-    """Return (int_grid, row_sums, col_sums) derived from the string grid."""
+def ground_truth_from_grid(str_grid: list[list[str]]) -> tuple[list[list[float]], list[float], list[float]]:
+    """Return (num_grid, row_sums, col_sums) derived from the string grid."""
     rows = len(str_grid)
     cols = len(str_grid[0]) if rows else 0
-    int_grid = [[int(v) for v in row] for row in str_grid]
-    row_sums = [sum(int_grid[r]) for r in range(rows)]
-    col_sums = [sum(int_grid[r][c] for r in range(rows)) for c in range(cols)]
-    return int_grid, row_sums, col_sums
+    num_grid = [[float(v) for v in row] for row in str_grid]
+    row_sums = [round(sum(num_grid[r]), 10) for r in range(rows)]
+    col_sums = [round(sum(num_grid[r][c] for r in range(rows)), 10) for c in range(cols)]
+    return num_grid, row_sums, col_sums
 
 
 # ---------------------------------------------------------------------------
@@ -124,9 +125,9 @@ def ground_truth_from_grid(str_grid: list[list[str]]) -> tuple[list[list[int]], 
 
 def score_response(
     predicted: dict,
-    actual_int_grid: list[list[int]],
-    actual_row_sums: list[int],
-    actual_col_sums: list[int],
+    actual_int_grid: list[list[float]],
+    actual_row_sums: list[float],
+    actual_col_sums: list[float],
     rows: int,
     cols: int,
 ) -> dict:

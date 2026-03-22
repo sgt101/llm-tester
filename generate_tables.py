@@ -113,7 +113,23 @@ def _render_cell(
     angle     = rng.uniform(-rotation, rotation)
     color     = _random_color(rng)
 
+    # Leave a small inset so text doesn't touch gridlines
+    max_text_w = cell_w * 0.88
+    max_text_h = cell_h * 0.88
+
     font = _load_font(font_size, font_path)
+
+    # Shrink font until text fits within the cell
+    probe = Image.new("RGBA", (1, 1))
+    probe_draw = ImageDraw.Draw(probe)
+    while font_size > 6:
+        bbox   = probe_draw.textbbox((0, 0), text, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+        if text_w <= max_text_w and text_h <= max_text_h:
+            break
+        font_size -= 1
+        font = _load_font(font_size, font_path)
 
     # Render onto a padded canvas so rotation never clips the glyph
     pad = int(max(cell_w, cell_h) * 0.6)
@@ -121,14 +137,16 @@ def _render_cell(
     tmp = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(tmp)
 
-    # Measure text
+    # Final measurement
     bbox   = draw.textbbox((0, 0), text, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
 
-    # Centre of cell within padded canvas, with jitter
-    jitter_x = rng.uniform(-pos_jitter, pos_jitter) * cell_w
-    jitter_y = rng.uniform(-pos_jitter, pos_jitter) * cell_h
+    # Clamp jitter so the text centre never leaves the cell
+    max_jitter_x = (cell_w - text_w) / 2 * pos_jitter
+    max_jitter_y = (cell_h - text_h) / 2 * pos_jitter
+    jitter_x = rng.uniform(-max_jitter_x, max_jitter_x)
+    jitter_y = rng.uniform(-max_jitter_y, max_jitter_y)
     cx = pad + cell_w / 2 + jitter_x
     cy = pad + cell_h / 2 + jitter_y
 
