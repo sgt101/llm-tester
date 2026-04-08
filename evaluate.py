@@ -135,6 +135,8 @@ def evaluate(config_path: str | Path) -> None:
         provider=model_cfg["provider"],
         model=model_cfg.get("name"),
         api_key=model_cfg.get("api_key"),
+        temperature=model_cfg.get("temperature", 0.0),
+        max_tokens=model_cfg.get("max_tokens", 2048),
     )
     print(f"Provider : {client.provider_name}")
     print(f"Model    : {client.model}")

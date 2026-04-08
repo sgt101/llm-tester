@@ -43,9 +43,17 @@ class LLMResponse:
 class LLMClient(ABC):
     """Common interface for all LLM provider clients."""
 
-    def __init__(self, model: str | None = None, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        model: str | None = None,
+        api_key: str | None = None,
+        temperature: float = 0.0,
+        max_tokens: int = 2048,
+    ) -> None:
         self.model = model or self.default_model
         self.api_key = api_key or os.environ.get(self.api_key_env, "")
+        self.temperature = temperature
+        self.max_tokens = max_tokens
         if not self.api_key:
             raise ValueError(
                 f"No API key provided for {self.provider_name}. "
@@ -102,8 +110,8 @@ class AnthropicClient(LLMClient):
     default_model = "claude-opus-4-6"
     api_key_env = "ANTHROPIC_API_KEY"
 
-    def __init__(self, model: str | None = None, api_key: str | None = None) -> None:
-        super().__init__(model, api_key)
+    def __init__(self, model: str | None = None, api_key: str | None = None, temperature: float = 0.0, max_tokens: int = 2048) -> None:
+        super().__init__(model, api_key, temperature, max_tokens)
         try:
             import anthropic as _anthropic
         except ImportError:
@@ -114,7 +122,8 @@ class AnthropicClient(LLMClient):
         b64, mime_type = self._read_image_b64(image_path)
         message = self._client.messages.create(
             model=self.model,
-            max_tokens=1024,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
             messages=[
                 {
                     "role": "user",
@@ -152,8 +161,8 @@ class OpenAIClient(LLMClient):
     default_model = "gpt-4o"
     api_key_env = "OPENAI_API_KEY"
 
-    def __init__(self, model: str | None = None, api_key: str | None = None) -> None:
-        super().__init__(model, api_key)
+    def __init__(self, model: str | None = None, api_key: str | None = None, temperature: float = 0.0, max_tokens: int = 2048) -> None:
+        super().__init__(model, api_key, temperature, max_tokens)
         try:
             from openai import OpenAI as _OpenAI
         except ImportError:
@@ -177,7 +186,8 @@ class OpenAIClient(LLMClient):
                     ],
                 }
             ],
-            max_completion_tokens=1024,
+            max_completion_tokens=self.max_tokens,
+            temperature=self.temperature,
         )
         choice = completion.choices[0]
         text = choice.message.content or ""
@@ -201,8 +211,8 @@ class GoogleClient(LLMClient):
     default_model = "gemini-2.0-flash"
     api_key_env = "GEMINI_API_KEY"
 
-    def __init__(self, model: str | None = None, api_key: str | None = None) -> None:
-        super().__init__(model, api_key)
+    def __init__(self, model: str | None = None, api_key: str | None = None, temperature: float = 0.0, max_tokens: int = 2048) -> None:
+        super().__init__(model, api_key, temperature, max_tokens)
         try:
             from google import genai as _genai
             from google.genai import types as _types
@@ -221,6 +231,10 @@ class GoogleClient(LLMClient):
         response = self._client.models.generate_content(
             model=self.model,
             contents=[image_part, prompt],
+            config=self._types.GenerateContentConfig(
+                max_output_tokens=self.max_tokens,
+                temperature=self.temperature,
+            ),
         )
         text = response.text or ""
         usage = getattr(response, "usage_metadata", None)
@@ -253,10 +267,12 @@ class MLXClient(LLMClient):
     default_model = "mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-4bit"
     api_key_env = ""  # unused
 
-    def __init__(self, model: str | None = None, api_key: str | None = None) -> None:
+    def __init__(self, model: str | None = None, api_key: str | None = None, temperature: float = 0.0, max_tokens: int = 2048) -> None:
         # Skip the base-class API-key requirement — no key needed for local inference.
         self.model = model or self.default_model
         self.api_key = ""
+        self.temperature = temperature
+        self.max_tokens = max_tokens
 
         try:
             from mlx_vlm import load, generate
@@ -283,8 +299,15 @@ class MLXClient(LLMClient):
             formatted_prompt,
             [image_path],
             verbose=False,
+            max_tokens=self.max_tokens,
+            temp=self.temperature,
         )
-        text = output if isinstance(output, str) else str(output)
+        if isinstance(output, str):
+            text = output
+        elif hasattr(output, "text"):
+            text = output.text
+        else:
+            text = str(output)
         return LLMResponse(
             provider=self.provider_name,
             model=self.model,
@@ -308,20 +331,18 @@ def get_client(
     provider: str,
     model: str | None = None,
     api_key: str | None = None,
+    temperature: float = 0.0,
+    max_tokens: int = 2048,
 ) -> LLMClient:
     """Return an LLMClient for the named provider.
 
     Args:
-        provider: One of "anthropic", "openai", "google", or "mlx".
-        model:    Model name override. Uses each provider's default when omitted.
-        api_key:  API key override. Reads from the environment when omitted.
-                  Not used for the "mlx" provider.
-
-    Example:
-        client = get_client("anthropic")
-        response = client.analyze_image("output/png_10_4/composite_0001.png",
-                                        "How many elephants are in this image?")
-        print(response.text)
+        provider:    One of "anthropic", "openai", "google", or "mlx".
+        model:       Model name override. Uses each provider's default when omitted.
+        api_key:     API key override. Reads from the environment when omitted.
+                     Not used for the "mlx" provider.
+        temperature: Sampling temperature (default 0.0 for deterministic output).
+        max_tokens:  Maximum tokens in the response (default 2048).
     """
     key = provider.lower().strip()
     cls = _PROVIDERS.get(key)
@@ -330,4 +351,4 @@ def get_client(
             f"Unknown provider '{provider}'. "
             f"Choose from: {', '.join(_PROVIDERS)}"
         )
-    return cls(model=model, api_key=api_key)
+    return cls(model=model, api_key=api_key, temperature=temperature, max_tokens=max_tokens)

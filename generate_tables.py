@@ -166,7 +166,7 @@ def _random_number(
     rng: random.Random,
     numbers: list[str] | None,
     digits: int,
-    decimal: bool,
+    decimal_places: int,
 ) -> str:
     """Generate one cell value according to the active mode."""
     if numbers is not None:
@@ -175,8 +175,9 @@ def _random_number(
         lo = 10 ** (digits - 1) if digits > 1 else 1
         hi = 10 ** digits - 1
         integer_part = str(rng.randint(lo, hi))
-    if decimal:
-        return f"{integer_part}.{rng.randint(0, 9)}"
+    if decimal_places > 0:
+        frac = "".join(str(rng.randint(0, 9)) for _ in range(decimal_places))
+        return f"{integer_part}.{frac}"
     return integer_part
 
 
@@ -197,7 +198,7 @@ def generate_table(
     grid_color: tuple[int, int, int],
     grid_width: int,
     digits: int = 1,
-    decimal: bool = False,
+    decimal_places: int = 0,
 ) -> tuple[Image.Image, list[list[str]]]:
     """
     Build one table image.
@@ -219,7 +220,7 @@ def generate_table(
     for row in range(rows):
         grid_row: list[str] = []
         for col in range(cols):
-            number = _random_number(rng, numbers, digits, decimal)
+            number = _random_number(rng, numbers, digits, decimal_places)
             grid_row.append(number)
 
             x0 = margin + col * cell_w
